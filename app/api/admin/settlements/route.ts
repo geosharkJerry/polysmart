@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { settlementLedgers } from "@/lib/mock-db";
+import { runtimeState } from "@/lib/store";
 
 export async function GET() {
-  return NextResponse.json({ settlements: settlementLedgers });
+  return NextResponse.json({ settlements: runtimeState.settlements });
 }

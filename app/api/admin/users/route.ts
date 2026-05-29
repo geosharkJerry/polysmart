@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { billingProfiles } from "@/lib/mock-db";
+import { listProfiles } from "@/lib/services/billing";
 
 export async function GET() {
-  return NextResponse.json({ users: Object.values(billingProfiles) });
+  return NextResponse.json({ users: listProfiles() });
 }

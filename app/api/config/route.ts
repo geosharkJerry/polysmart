@@ -1,21 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { platformConfig } from "@/lib/mock-db";
+import { getSystemConfig, updateScrapeFrequency } from "@/lib/services/system-config";
 
 export async function GET() {
-  return NextResponse.json(platformConfig);
+  return NextResponse.json(getSystemConfig());
 }
 
 export async function PUT(request: NextRequest) {
   const payload = await request.json();
-  const value = Number(payload.scrapeFrequencyMinutes);
+  const result = updateScrapeFrequency(Number(payload.scrapeFrequencyMinutes));
 
-  if (!Number.isFinite(value) || value < 1 || value > 60) {
-    return NextResponse.json(
-      { message: "scrapeFrequencyMinutes must be between 1 and 60" },
-      { status: 400 }
-    );
+  if ("error" in result) {
+    return NextResponse.json({ message: result.error }, { status: 400 });
   }
 
-  platformConfig.scrapeFrequencyMinutes = Math.round(value);
-  return NextResponse.json(platformConfig);
+  return NextResponse.json(result.config);
 }

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { t0Events } from "@/lib/mock-db";
+import { listEvents } from "@/lib/services/events";
 
 export async function GET() {
-  return NextResponse.json({ events: t0Events });
+  return NextResponse.json({ events: listEvents() });
 }

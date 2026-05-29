@@ -2,17 +2,28 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { NavBar } from "@/components/NavBar";
-import { BillingProfile, T0Event } from "@/lib/types";
+import { BillingProfile, MatrixAccount, RiskMetrics, T0Event } from "@/lib/types";
 
 const defaultProfile: BillingProfile = {
   userId: "user-alpha",
   billingMode: "SUBSCRIPTION",
   settlementFrequency: "DAILY",
   volumeFeeRate: 0.015,
+  performanceFeeRate: 0.2,
   rentExpiresAt: null,
   totalTradedVolumeUsd: 0,
   pscBalance: 0,
   accountStatus: "active"
+};
+
+const defaultRisk: RiskMetrics = {
+  inventoryDeviationPct: 0,
+  hedgeLatencyMs: 0,
+  slippagePct: 0,
+  blockedAccounts: 0,
+  status: "NORMAL",
+  reason: null,
+  updatedAt: new Date().toISOString()
 };
 
 export default function ConsolePage() {
@@ -24,26 +35,43 @@ export default function ConsolePage() {
   const [saveMessage, setSaveMessage] = useState("");
   const [tradeVolume, setTradeVolume] = useState(10000);
   const [chargeMessage, setChargeMessage] = useState("");
+  const [quoteResult, setQuoteResult] = useState<string>("");
+  const [risk, setRisk] = useState<RiskMetrics>(defaultRisk);
+  const [accounts, setAccounts] = useState<MatrixAccount[]>([]);
+  const [accountStatus, setAccountStatus] = useState("");
+
+  const [newAccount, setNewAccount] = useState({
+    platform: "kalshi",
+    label: "",
+    proxyUrl: "",
+    apiKey: ""
+  });
+
+  const boot = async () => {
+    const [profileRes, eventsRes, configRes, riskRes, accountRes] = await Promise.all([
+      fetch("/api/billing/profile/user-alpha"),
+      fetch("/api/events"),
+      fetch("/api/config"),
+      fetch("/api/risk/status"),
+      fetch("/api/accounts")
+    ]);
+
+    const profileData: BillingProfile = await profileRes.json();
+    const eventsData: { events: T0Event[] } = await eventsRes.json();
+    const configData: { scrapeFrequencyMinutes: number } = await configRes.json();
+    const riskData: RiskMetrics = await riskRes.json();
+    const accountData: { accounts: MatrixAccount[] } = await accountRes.json();
+
+    setProfile(profileData);
+    setBillingMode(profileData.billingMode);
+    setVolumeFee(profileData.volumeFeeRate);
+    setEvents(eventsData.events);
+    setScrapeFrequency(configData.scrapeFrequencyMinutes);
+    setRisk(riskData);
+    setAccounts(accountData.accounts);
+  };
 
   useEffect(() => {
-    const boot = async () => {
-      const [profileRes, eventsRes, configRes] = await Promise.all([
-        fetch("/api/billing/profile/user-alpha"),
-        fetch("/api/events"),
-        fetch("/api/config")
-      ]);
-
-      const profileData: BillingProfile = await profileRes.json();
-      const eventsData: { events: T0Event[] } = await eventsRes.json();
-      const configData: { scrapeFrequencyMinutes: number } = await configRes.json();
-
-      setProfile(profileData);
-      setBillingMode(profileData.billingMode);
-      setVolumeFee(profileData.volumeFeeRate);
-      setEvents(eventsData.events);
-      setScrapeFrequency(configData.scrapeFrequencyMinutes);
-    };
-
     boot().catch(() => {
       setSaveMessage("Failed to load initial configuration.");
     });
@@ -106,6 +134,63 @@ export default function ConsolePage() {
     }
   };
 
+  const runQuoteSimulation = async () => {
+    const res = await fetch("/api/strategy/quote", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        polyYesBid: 0.46,
+        kalshiNoBid: 0.48,
+        inventory: 0.2,
+        totalOrderUsd: 12000,
+        timeToSettlementHours: 6
+      })
+    });
+    const payload = await res.json();
+    setQuoteResult(
+      `PolyBid ${payload.pricing.polyTargetBid.toFixed(3)} | KalshiBid ${payload.pricing.kalshiTargetBid.toFixed(3)} | Amend=${payload.reduce.shouldAmend}`
+    );
+  };
+
+  const evaluateRisk = async () => {
+    const res = await fetch("/api/risk/circuit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        inventoryDeviationPct: 0.24,
+        hedgeLatencyMs: 1700,
+        slippagePct: 0.008,
+        blockedAccounts: 0
+      })
+    });
+    const payload = await res.json();
+    setRisk(payload);
+  };
+
+  const bindMatrixAccount = async () => {
+    setAccountStatus("Binding...");
+    const res = await fetch("/api/accounts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId: "user-alpha",
+        platform: newAccount.platform,
+        label: newAccount.label,
+        proxyUrl: newAccount.proxyUrl,
+        credentials: { apiKey: newAccount.apiKey }
+      })
+    });
+
+    const payload = await res.json();
+    if (!res.ok) {
+      setAccountStatus(payload.message || "Bind failed");
+      return;
+    }
+
+    setAccountStatus(`Bound: ${payload.account.accountId} (${payload.health})`);
+    await boot();
+  };
+
   return (
     <main>
       <NavBar />
@@ -113,10 +198,10 @@ export default function ConsolePage() {
         <div className="rounded-3xl border border-sky-100 bg-white p-7 shadow-sm">
           <h1 className="text-2xl font-bold text-ink">Polysmart Commercial Control Panel</h1>
           <p className="mt-2 text-sm text-slate-600">
-            Manage T+0 market harvesting cadence, account charging mode, and execution posture in one operational cockpit.
+            Unified console for T+0 event harvesting, matrix account orchestration, billing, and circuit-breaker risk controls.
           </p>
 
-          <div className="mt-7 grid gap-6 md:grid-cols-3">
+          <div className="mt-7 grid gap-6 md:grid-cols-4">
             <div className="rounded-2xl border border-sky-100 bg-sky-50 p-5">
               <p className="text-xs uppercase text-slate-500">T+0 Active Events</p>
               <p className="mt-2 text-3xl font-semibold text-ink">{events.length}</p>
@@ -126,8 +211,12 @@ export default function ConsolePage() {
               <p className="mt-2 text-3xl font-semibold text-ink">{avgWinRate}%</p>
             </div>
             <div className="rounded-2xl border border-sky-100 bg-orange-50 p-5">
-              <p className="text-xs uppercase text-slate-500">KYC Matrix Status</p>
-              <p className="mt-2 text-3xl font-semibold text-ink">{profile.accountStatus === "active" ? "Healthy" : "Quota Halted"}</p>
+              <p className="text-xs uppercase text-slate-500">KYC Matrix Health</p>
+              <p className="mt-2 text-3xl font-semibold text-ink">{accounts.filter((a) => a.status !== "disabled").length}</p>
+            </div>
+            <div className="rounded-2xl border border-sky-100 bg-rose-50 p-5">
+              <p className="text-xs uppercase text-slate-500">Risk State</p>
+              <p className="mt-2 text-3xl font-semibold text-ink">{risk.status}</p>
             </div>
           </div>
         </div>
@@ -186,45 +275,104 @@ export default function ConsolePage() {
             >
               Save Configuration
             </button>
-            <p className="text-sm text-slate-600">{saveMessage}</p>
+            <button
+              type="button"
+              onClick={evaluateRisk}
+              className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white"
+            >
+              Run Circuit-Breaker Drill
+            </button>
+            <p className="text-sm text-slate-600">{saveMessage || `Risk reason: ${risk.reason ?? "none"}`}</p>
+          </div>
+        </div>
+
+        <div className="mt-7 grid gap-7 lg:grid-cols-2">
+          <div className="rounded-3xl border border-sky-100 bg-white p-7 shadow-sm">
+            <h2 className="text-lg font-semibold text-ink">Subscription Charge Simulator</h2>
+            <div className="mt-4 flex flex-wrap items-end gap-4">
+              <div>
+                <label className="mb-2 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                  Executed Volume (USD)
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  value={tradeVolume}
+                  onChange={(e) => setTradeVolume(Number(e.target.value))}
+                  className="w-48 rounded-xl border border-sky-200 bg-white px-3 py-2 text-sm"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={triggerCharge}
+                className="rounded-xl bg-sky px-4 py-2 text-sm font-semibold text-white"
+              >
+                Apply Volume Fee
+              </button>
+            </div>
+            <div className="mt-4 grid gap-2 text-sm text-slate-700">
+              <p>Status: {chargeMessage}</p>
+              <p>PSC Balance: {profile.pscBalance.toLocaleString()}</p>
+              <p>Total Traded Volume: ${profile.totalTradedVolumeUsd.toLocaleString()}</p>
+            </div>
           </div>
 
-          <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-            Strategy Guardrail: T+0 same-day settlement mode is active. Cross-day macro markets are automatically excluded.
+          <div className="rounded-3xl border border-sky-100 bg-white p-7 shadow-sm">
+            <h2 className="text-lg font-semibold text-ink">Quote + Hedge Simulation</h2>
+            <p className="mt-2 text-sm text-slate-600">Runs pricing, rate reducer, and matrix order slicing in one step.</p>
+            <button
+              type="button"
+              onClick={runQuoteSimulation}
+              className="mt-4 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white"
+            >
+              Run Strategy Simulation
+            </button>
+            <p className="mt-3 text-sm text-slate-700">{quoteResult}</p>
           </div>
         </div>
 
         <div className="mt-7 rounded-3xl border border-sky-100 bg-white p-7 shadow-sm">
-          <h2 className="text-lg font-semibold text-ink">Subscription Charge Simulator</h2>
-          <p className="mt-2 text-sm text-slate-600">
-            Simulate a filled trade and apply real-time volume fee deduction for subscription mode users.
-          </p>
-          <div className="mt-4 flex flex-wrap items-end gap-4">
-            <div>
-              <label className="mb-2 block text-xs font-medium uppercase tracking-wide text-slate-500">
-                Executed Volume (USD)
-              </label>
-              <input
-                type="number"
-                min={1}
-                value={tradeVolume}
-                onChange={(e) => setTradeVolume(Number(e.target.value))}
-                className="w-48 rounded-xl border border-sky-200 bg-white px-3 py-2 text-sm"
-              />
-            </div>
+          <h2 className="text-lg font-semibold text-ink">Account Matrix Binding</h2>
+          <div className="mt-4 grid gap-4 md:grid-cols-4">
+            <select
+              value={newAccount.platform}
+              onChange={(e) => setNewAccount({ ...newAccount, platform: e.target.value })}
+              className="rounded-xl border border-sky-200 bg-white px-3 py-2 text-sm"
+            >
+              <option value="polymarket">Polymarket</option>
+              <option value="kalshi">Kalshi</option>
+              <option value="predictit">PredictIt</option>
+            </select>
+            <input
+              value={newAccount.label}
+              onChange={(e) => setNewAccount({ ...newAccount, label: e.target.value })}
+              placeholder="Account label"
+              className="rounded-xl border border-sky-200 bg-white px-3 py-2 text-sm"
+            />
+            <input
+              value={newAccount.proxyUrl}
+              onChange={(e) => setNewAccount({ ...newAccount, proxyUrl: e.target.value })}
+              placeholder="Proxy URL"
+              className="rounded-xl border border-sky-200 bg-white px-3 py-2 text-sm"
+            />
+            <input
+              value={newAccount.apiKey}
+              onChange={(e) => setNewAccount({ ...newAccount, apiKey: e.target.value })}
+              placeholder="API key / token"
+              className="rounded-xl border border-sky-200 bg-white px-3 py-2 text-sm"
+            />
+          </div>
+          <div className="mt-4 flex items-center gap-3">
             <button
               type="button"
-              onClick={triggerCharge}
-              className="rounded-xl bg-sky px-4 py-2 text-sm font-semibold text-white"
+              onClick={bindMatrixAccount}
+              className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white"
             >
-              Apply 1.5% Volume Fee
+              Bind Account
             </button>
-            <p className="text-sm text-slate-600">{chargeMessage}</p>
+            <p className="text-sm text-slate-700">{accountStatus}</p>
           </div>
-          <div className="mt-4 grid gap-2 text-sm text-slate-700">
-            <p>Current PSC Balance: {profile.pscBalance.toLocaleString()}</p>
-            <p>Total Traded Volume: ${profile.totalTradedVolumeUsd.toLocaleString()}</p>
-          </div>
+          <p className="mt-3 text-sm text-slate-600">Active accounts: {accounts.length}</p>
         </div>
 
         <div className="mt-7 rounded-3xl border border-sky-100 bg-white p-7 shadow-sm">
