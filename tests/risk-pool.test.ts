@@ -14,6 +14,19 @@ describe("risk controller", () => {
     expect(out.reason).toBe("LEG_IN_TIMEOUT");
   });
 
+  it("respects configurable hedge timeout", () => {
+    const out = evaluateCircuitBreaker(
+      {
+        inventoryDeviationPct: 0.21,
+        hedgeLatencyMs: 900,
+        slippagePct: 0.001,
+        blockedAccounts: 0
+      },
+      800
+    );
+    expect(out.status).toBe("CIRCUIT_BREAKER");
+  });
+
   it("returns queued when liquid buffer is insufficient", () => {
     const out = executeEmergencyWithdrawal(
       {

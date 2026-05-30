@@ -1,17 +1,35 @@
 import {
   AccountCredential,
   AssetPoolState,
+  AtomicTransaction,
+  AuditLog,
   BillingProfile,
+  BusEvent,
+  BusMetrics,
+  BusSlaPolicy,
+  ExecutionIntent,
+  FillRecord,
+  InventoryLock,
+  InventoryPosition,
   MatrixAccount,
+  OrderRecord,
   PlatformConfig,
   PoolMember,
   RiskMetrics,
+  SelfHealingState,
   SettlementLedger,
   T0Event
 } from "@/lib/types";
 
 const now = new Date();
 const inHours = (h: number) => new Date(now.getTime() + h * 60 * 60 * 1000).toISOString();
+
+const levelMetrics = () => ({
+  processed: 0,
+  breaches: 0,
+  avgWaitMs: 0,
+  lastWaitMs: 0
+});
 
 export interface RuntimeState {
   config: PlatformConfig;
@@ -23,6 +41,17 @@ export interface RuntimeState {
   poolState: AssetPoolState;
   poolMembers: Record<string, PoolMember>;
   risk: RiskMetrics;
+  healing: SelfHealingState;
+  intents: Record<string, ExecutionIntent>;
+  orders: Record<string, OrderRecord>;
+  fills: FillRecord[];
+  inventory: Record<string, InventoryPosition>;
+  inventoryLocks: Record<string, InventoryLock>;
+  atomicTransactions: Record<string, AtomicTransaction>;
+  busQueue: BusEvent[];
+  busSlaPolicies: Record<1 | 2 | 3 | 4, BusSlaPolicy>;
+  busMetrics: BusMetrics;
+  auditLogs: AuditLog[];
 }
 
 export const runtimeState: RuntimeState = {
@@ -156,7 +185,52 @@ export const runtimeState: RuntimeState = {
     status: "NORMAL",
     reason: null,
     updatedAt: now.toISOString()
-  }
+  },
+  healing: {
+    mode: "NORMAL",
+    lastTransitionAt: now.toISOString(),
+    reason: null
+  },
+  intents: {},
+  orders: {},
+  fills: [],
+  inventory: {},
+  inventoryLocks: {},
+  atomicTransactions: {},
+  busQueue: [],
+  busSlaPolicies: {
+    1: { level: 1, maxLatencyMs: 50 },
+    2: { level: 2, maxLatencyMs: 200 },
+    3: { level: 3, maxLatencyMs: 500 },
+    4: { level: 4, maxLatencyMs: 2000 }
+  },
+  busMetrics: {
+    queueDepth: 0,
+    processed: 0,
+    dropped: 0,
+    avgLatencyMs: 0,
+    level: {
+      1: levelMetrics(),
+      2: levelMetrics(),
+      3: levelMetrics(),
+      4: levelMetrics()
+    },
+    updatedAt: now.toISOString()
+  },
+  auditLogs: []
 };
 
 export const nextId = (prefix: string) => `${prefix}-${Math.floor(Math.random() * 900000 + 100000)}`;
+
+export function pushAudit(category: AuditLog["category"], message: string, context: Record<string, unknown>) {
+  runtimeState.auditLogs.unshift({
+    id: nextId("LOG"),
+    category,
+    message,
+    context,
+    createdAt: new Date().toISOString()
+  });
+  if (runtimeState.auditLogs.length > 5000) {
+    runtimeState.auditLogs.length = 5000;
+  }
+}

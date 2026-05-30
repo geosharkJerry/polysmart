@@ -1,9 +1,17 @@
 import { executeEmergencyWithdrawal, evaluateCircuitBreaker } from "@/lib/engine/risk-controller";
 import { depositToPool, recalcNav } from "@/lib/engine/asset-pool";
-import { runtimeState } from "@/lib/store";
+import { applyHealingTransition, deriveHealingActions } from "@/lib/engine/self-healing";
+import { pushAudit, runtimeState } from "@/lib/store";
 
 export function getRiskSnapshot() {
   return runtimeState.risk;
+}
+
+export function getRiskBundle() {
+  return {
+    risk: runtimeState.risk,
+    healing: runtimeState.healing
+  };
 }
 
 export function evaluateAndApplyRisk(input: {
@@ -12,9 +20,24 @@ export function evaluateAndApplyRisk(input: {
   slippagePct: number;
   blockedAccounts: number;
 }) {
-  const next = evaluateCircuitBreaker(input);
+  const next = evaluateCircuitBreaker(input, runtimeState.config.hedgeTimeoutMs);
   runtimeState.risk = next;
-  return next;
+
+  const actions = deriveHealingActions(next, runtimeState.healing);
+  if (actions.length > 0) {
+    runtimeState.healing = applyHealingTransition(runtimeState.healing, actions);
+    pushAudit("RISK", "self-healing actions generated", {
+      actions,
+      mode: runtimeState.healing.mode,
+      reason: runtimeState.healing.reason
+    });
+  }
+
+  return {
+    risk: runtimeState.risk,
+    healing: runtimeState.healing,
+    actions
+  };
 }
 
 export function getPoolSummary() {
@@ -30,6 +53,7 @@ export function depositPool(userId: string, amountUsd: number) {
   const { pool, member: updated } = depositToPool(runtimeState.poolState, member, amountUsd, userId);
   runtimeState.poolState = pool;
   runtimeState.poolMembers[userId] = updated;
+  pushAudit("BILLING", "pool deposit", { userId, amountUsd });
   return {
     pool,
     member: updated
@@ -46,6 +70,7 @@ export function settlePoolEvent(userId: string, profitUsd: number) {
   runtimeState.poolState.totalAssetsUsd = Number((runtimeState.poolState.totalAssetsUsd + profitUsd).toFixed(2));
   runtimeState.poolState = recalcNav(runtimeState.poolState);
 
+  pushAudit("BILLING", "pool event settled", { userId, profitUsd });
   return {
     pool: runtimeState.poolState,
     member
@@ -73,5 +98,10 @@ export function emergencyWithdraw(userId: string) {
     runtimeState.poolState = recalcNav(runtimeState.poolState);
   }
 
+  pushAudit("BILLING", "emergency withdraw", { userId, result });
   return result;
+}
+
+export function getAuditLogs(limit = 100) {
+  return runtimeState.auditLogs.slice(0, Math.max(1, limit));
 }

@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { bindAccount, listAccounts } from "@/lib/services/accounts";
+import { AccountPlatform } from "@/lib/types";
+
+const accountPlatforms: AccountPlatform[] = ["polymarket", "kalshi", "predictit"];
 
 export async function GET() {
   return NextResponse.json({ accounts: listAccounts() });
@@ -15,6 +18,10 @@ export async function POST(request: NextRequest) {
 
   if (!userId || !platform || !label || !proxyUrl || !credentials || typeof credentials !== "object") {
     return NextResponse.json({ message: "Invalid account binding payload" }, { status: 400 });
+  }
+
+  if (!accountPlatforms.includes(platform)) {
+    return NextResponse.json({ message: "Invalid platform enum" }, { status: 400 });
   }
 
   const result = bindAccount({ userId, platform, label, proxyUrl, credentials });

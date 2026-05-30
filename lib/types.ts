@@ -79,12 +79,14 @@ export interface AssetPoolState {
   updatedAt: string;
 }
 
+export type RiskStatus = "NORMAL" | "CIRCUIT_BREAKER";
+
 export interface RiskMetrics {
   inventoryDeviationPct: number;
   hedgeLatencyMs: number;
   slippagePct: number;
   blockedAccounts: number;
-  status: "NORMAL" | "CIRCUIT_BREAKER";
+  status: RiskStatus;
   reason: string | null;
   updatedAt: string;
 }
@@ -157,4 +159,218 @@ export interface RelayPlanSlice {
 export interface RelayPlan {
   totalUsd: number;
   slices: RelayPlanSlice[];
+}
+
+export type MarketSide = "YES" | "NO";
+export type OrderType = "MAKER" | "TAKER";
+export type OrderStatus = "PENDING" | "PARTIAL" | "FILLED" | "CANCELED" | "REJECTED";
+
+export interface OrderIntentLeg {
+  platform: AccountPlatform;
+  marketId: string;
+  side: MarketSide;
+  notionalUsd: number;
+  limitPrice: number;
+  orderType: OrderType;
+}
+
+export interface ExecutionIntent {
+  intentId: string;
+  userId: string;
+  eventId: string;
+  status: "CREATED" | "LOCKED" | "EXECUTING" | "HEDGED" | "FAILED";
+  createdAt: string;
+  updatedAt: string;
+  legs: OrderIntentLeg[];
+}
+
+export interface OrderRecord {
+  orderId: string;
+  intentId: string;
+  userId: string;
+  platform: AccountPlatform;
+  marketId: string;
+  side: MarketSide;
+  orderType: OrderType;
+  limitPrice: number;
+  notionalUsd: number;
+  filledUsd: number;
+  status: OrderStatus;
+  externalOrderId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FillRecord {
+  fillId: string;
+  orderId: string;
+  intentId: string;
+  platform: AccountPlatform;
+  filledUsd: number;
+  avgPrice: number;
+  latencyMs: number;
+  createdAt: string;
+}
+
+export interface InventoryPosition {
+  userId: string;
+  eventId: string;
+  yesExposureUsd: number;
+  noExposureUsd: number;
+  netExposureUsd: number;
+  updatedAt: string;
+}
+
+export interface OrderBookSnapshot {
+  marketId: string;
+  platform: AccountPlatform;
+  bestYesBid: number;
+  bestNoBid: number;
+  spread: number;
+  depthUsd: number;
+  timestamp: string;
+}
+
+export interface ConnectorOrderRequest {
+  marketId: string;
+  side: MarketSide;
+  price: number;
+  notionalUsd: number;
+  orderType: OrderType;
+}
+
+export interface ConnectorOrderResult {
+  externalOrderId: string;
+  accepted: boolean;
+  reason?: string;
+}
+
+export interface ConnectorFillResult {
+  externalOrderId: string;
+  filledUsd: number;
+  avgPrice: number;
+  status: OrderStatus;
+  latencyMs: number;
+}
+
+export interface ConnectorHealth {
+  platform: AccountPlatform;
+  healthy: boolean;
+  latencyMs: number;
+  message: string;
+}
+
+export interface MarketConnector {
+  platform: AccountPlatform;
+  getOrderBook(marketId: string): Promise<OrderBookSnapshot>;
+  placeOrder(request: ConnectorOrderRequest): Promise<ConnectorOrderResult>;
+  cancelOrder(externalOrderId: string): Promise<{ canceled: boolean }>;
+  pollFill(externalOrderId: string): Promise<ConnectorFillResult>;
+  healthCheck(): Promise<ConnectorHealth>;
+}
+
+export type EventLevel = 1 | 2 | 3 | 4;
+export type EventKind =
+  | "ORDER_BOOK_UPDATE"
+  | "TRADE_FILL"
+  | "NEWS_EVENT"
+  | "ONCHAIN_EVENT"
+  | "SETTLEMENT_FUNDING"
+  | "RISK_ALERT";
+
+export interface BusEvent {
+  id: string;
+  level: EventLevel;
+  kind: EventKind;
+  eventId: string;
+  payload: Record<string, unknown>;
+  createdAt: string;
+  dedupeKey: string;
+  deadlineAt: string;
+}
+
+export interface BusSlaPolicy {
+  level: EventLevel;
+  maxLatencyMs: number;
+}
+
+export interface BusLevelMetrics {
+  processed: number;
+  breaches: number;
+  avgWaitMs: number;
+  lastWaitMs: number;
+}
+
+export interface BusMetrics {
+  queueDepth: number;
+  processed: number;
+  dropped: number;
+  avgLatencyMs: number;
+  level: Record<EventLevel, BusLevelMetrics>;
+  updatedAt: string;
+}
+
+export interface ScoreInput {
+  impactScore: number;
+  probabilityEdge: number;
+  liquidityScore: number;
+  timeDecay: number;
+  riskScore: number;
+  executionCost: number;
+}
+
+export interface CompositeScoreBreakdown extends ScoreInput {
+  composite: number;
+}
+
+export type SelfHealingMode = "NORMAL" | "DEFENSE" | "HALTED" | "RECOVERY";
+
+export interface SelfHealingState {
+  mode: SelfHealingMode;
+  lastTransitionAt: string;
+  reason: string | null;
+}
+
+export interface HealingAction {
+  action: "PAUSE_QUOTES" | "DELEVERAGE" | "REBALANCE" | "HALT_TRADING" | "RESUME_TRADING";
+  reason: string;
+}
+
+export interface AuditLog {
+  id: string;
+  category: "RISK" | "EXECUTION" | "BILLING" | "SYSTEM";
+  message: string;
+  context: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface InventoryLock {
+  lockId: string;
+  lockKey: string;
+  userId: string;
+  eventId: string;
+  intentId: string;
+  status: "ACTIVE" | "RELEASED" | "EXPIRED";
+  leaseMs: number;
+  acquiredAt: string;
+  expiresAt: string;
+  releasedAt: string | null;
+}
+
+export interface AtomicStep {
+  name: "ACQUIRE_LOCK" | "PLACE_ORDERS" | "POLL_FILLS" | "COMPENSATE" | "FINALIZE" | "RELEASE_LOCK";
+  status: "PENDING" | "SUCCESS" | "FAILED";
+  message: string;
+  timestamp: string;
+}
+
+export interface AtomicTransaction {
+  txId: string;
+  intentId: string;
+  userId: string;
+  eventId: string;
+  status: "RUNNING" | "COMMITTED" | "ROLLED_BACK" | "FAILED";
+  startedAt: string;
+  endedAt: string | null;
+  steps: AtomicStep[];
 }

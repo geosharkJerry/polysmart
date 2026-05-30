@@ -1,10 +1,13 @@
 import { AssetPoolState, RiskMetrics } from "@/lib/types";
 
-export function evaluateCircuitBreaker(metrics: Omit<RiskMetrics, "status" | "reason" | "updatedAt">): RiskMetrics {
+export function evaluateCircuitBreaker(
+  metrics: Omit<RiskMetrics, "status" | "reason" | "updatedAt">,
+  hedgeTimeoutMs = 800
+): RiskMetrics {
   let status: RiskMetrics["status"] = "NORMAL";
   let reason: string | null = null;
 
-  if (metrics.hedgeLatencyMs > 1500 && metrics.inventoryDeviationPct >= 0.2) {
+  if (metrics.hedgeLatencyMs > hedgeTimeoutMs && metrics.inventoryDeviationPct >= 0.2) {
     status = "CIRCUIT_BREAKER";
     reason = "LEG_IN_TIMEOUT";
   } else if (metrics.blockedAccounts > 0) {

@@ -14,5 +14,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: "Invalid risk metrics" }, { status: 400 });
   }
 
-  return NextResponse.json(evaluateAndApplyRisk(metrics));
+  const result = evaluateAndApplyRisk(metrics);
+  return NextResponse.json({
+    ...result.risk,
+    healing: result.healing,
+    actions: result.actions
+  });
 }

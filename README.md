@@ -35,9 +35,17 @@ Open:
 - `GET /api/admin/users` - billing profile list
 - `GET /api/admin/settlements` - settlement ledger list
 - `GET /api/accounts` / `POST /api/accounts` - matrix account bind + health
+- `GET /api/connectors/health` - mock connector health checks
+- `GET /api/execution/intents` / `POST /api/execution/intents` - create and view execution intents
+- `POST /api/execution/submit` - submit or cancel intent execution
+- `GET /api/execution/orders` - execution snapshot by intent
+- `GET /api/bus/enqueue` / `POST /api/bus/enqueue` - priority bus snapshot/enqueue
+- `POST /api/bus/process` - process next priority bus event
 - `GET /api/risk/status` / `POST /api/risk/circuit` - circuit-breaker evaluation
+- `GET /api/risk/healing` - self-healing mode and audit logs
 - `GET /api/pool/nav` / `POST /api/pool/deposit` / `POST /api/pool/settle`
 - `POST /api/strategy/quote` - pricing + rate reduction + order slicing simulation
+- `POST /api/strategy/score` - composite priority scoring
 - `POST /api/execution/simulate` - hedge state machine simulation
 - `POST /api/ai/route` - hybrid AI router selection
 
