@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { NavBar } from "@/components/NavBar";
+import { SettlementTrapWidget } from "@/components/SettlementTrapWidget";
 import { BillingProfile, MatrixAccount, RiskMetrics, T0Event } from "@/lib/types";
 
 const defaultProfile: BillingProfile = {
@@ -330,6 +331,8 @@ export default function ConsolePage() {
             <p className="mt-3 text-sm text-slate-700">{quoteResult}</p>
           </div>
         </div>
+
+        <SettlementTrapWidget />
 
         <div className="mt-7 rounded-3xl border border-sky-100 bg-white p-7 shadow-sm">
           <h2 className="text-lg font-semibold text-ink">Account Matrix Binding</h2>

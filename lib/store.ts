@@ -15,7 +15,10 @@ import {
   OrderRecord,
   PlatformConfig,
   PoolMember,
+  FlashLiquidationReport,
   RiskMetrics,
+  SettlementTrapConfig,
+  SettlementTrapTarget,
   SelfHealingState,
   SettlementLedger,
   T0Event
@@ -51,6 +54,9 @@ export interface RuntimeState {
   busQueue: BusEvent[];
   busSlaPolicies: Record<1 | 2 | 3 | 4, BusSlaPolicy>;
   busMetrics: BusMetrics;
+  settlementTrapConfig: SettlementTrapConfig;
+  settlementTraps: SettlementTrapTarget[];
+  lastFlashLiquidation: FlashLiquidationReport | null;
   auditLogs: AuditLog[];
 }
 
@@ -217,6 +223,49 @@ export const runtimeState: RuntimeState = {
     },
     updatedAt: now.toISOString()
   },
+  settlementTrapConfig: {
+    idleBufferRatio: 0.15,
+    antiLockupCeilingRatio: 0.3,
+    hardExposureCapRatio: 0.045,
+    flashLiquidationSlaMs: 50,
+    minAskPrice: 0.96,
+    minAiConfidence: 0.999
+  },
+  settlementTraps: [
+    {
+      trapId: "TRAP-01",
+      marketId: "PM-FED-20260530",
+      category: "MACRO",
+      title: "Fed voting outcome already confirmed, awaiting settlement unlock",
+      targetContractType: "YES",
+      currentMarketPrice: 0.972,
+      projectedApy: 3.842,
+      allocatedUsd: 4500,
+      aiConfidence: 0.9993,
+      settlementEtaHours: 36,
+      status: "DEPLOYED",
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+      liquidatedAt: null
+    },
+    {
+      trapId: "TRAP-02",
+      marketId: "PM-WEATHER-20260530",
+      category: "WEATHER",
+      title: "Weather bureau report finalized, market still in dispute window",
+      targetContractType: "YES",
+      currentMarketPrice: 0.968,
+      projectedApy: 4.125,
+      allocatedUsd: 2100,
+      aiConfidence: 0.9991,
+      settlementEtaHours: 32,
+      status: "DEPLOYED",
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+      liquidatedAt: null
+    }
+  ],
+  lastFlashLiquidation: null,
   auditLogs: []
 };
 

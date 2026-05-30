@@ -91,6 +91,44 @@ export interface RiskMetrics {
   updatedAt: string;
 }
 
+export type SettlementTrapStatus = "SCANNING" | "DEPLOYED" | "FORCE_LIQUIDATED" | "CLEARED";
+
+export interface SettlementTrapTarget {
+  trapId: string;
+  marketId: string;
+  category: "CRYPTO" | "WEATHER" | "SPORTS" | "POLITICS" | "MACRO";
+  title: string;
+  targetContractType: "YES";
+  currentMarketPrice: number;
+  projectedApy: number;
+  allocatedUsd: number;
+  aiConfidence: number;
+  settlementEtaHours: number;
+  status: SettlementTrapStatus;
+  createdAt: string;
+  updatedAt: string;
+  liquidatedAt: string | null;
+}
+
+export interface SettlementTrapConfig {
+  idleBufferRatio: number;
+  antiLockupCeilingRatio: number;
+  hardExposureCapRatio: number;
+  flashLiquidationSlaMs: number;
+  minAskPrice: number;
+  minAiConfidence: number;
+}
+
+export interface FlashLiquidationReport {
+  triggered: boolean;
+  withinSla: boolean;
+  elapsedMs: number;
+  requiredUsd: number;
+  reclaimedUsd: number;
+  remainingShortfallUsd: number;
+  liquidatedMarkets: string[];
+}
+
 export interface PricingInput {
   polyYesBid: number;
   kalshiNoBid: number;

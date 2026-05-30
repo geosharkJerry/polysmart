@@ -1,6 +1,7 @@
 import { executeEmergencyWithdrawal, evaluateCircuitBreaker } from "@/lib/engine/risk-controller";
 import { depositToPool, recalcNav } from "@/lib/engine/asset-pool";
 import { applyHealingTransition, deriveHealingActions } from "@/lib/engine/self-healing";
+import { triggerRedemptionDrivenFlashLiquidation } from "@/lib/services/settlement-trap";
 import { pushAudit, runtimeState } from "@/lib/store";
 
 export function getRiskSnapshot() {
@@ -83,12 +84,28 @@ export function emergencyWithdraw(userId: string) {
     return { status: "INVALID", reason: "Pool member not found" } as const;
   }
 
-  const result = executeEmergencyWithdrawal(
+  let result = executeEmergencyWithdrawal(
     runtimeState.poolState,
     member.shares,
     runtimeState.poolState.totalShares,
     runtimeState.poolState.emergencyPenaltyRate
   );
+
+  if (result.status === "QUEUED_FOR_MANUAL") {
+    const flash = triggerRedemptionDrivenFlashLiquidation(result.payoutUsd);
+    result = executeEmergencyWithdrawal(
+      runtimeState.poolState,
+      member.shares,
+      runtimeState.poolState.totalShares,
+      runtimeState.poolState.emergencyPenaltyRate
+    );
+
+    pushAudit("RISK", "flash liquidation attempted for emergency redemption", {
+      userId,
+      requestedPayoutUsd: result.payoutUsd,
+      flash
+    });
+  }
 
   if (result.status === "PAID") {
     runtimeState.poolState.liquidBufferUsd = Number((runtimeState.poolState.liquidBufferUsd - result.payoutUsd).toFixed(2));
