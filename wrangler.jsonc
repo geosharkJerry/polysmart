@@ -1,0 +1,45 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "polysmart",
+  "main": "cloudflare-worker.js",
+  "compatibility_date": "2026-06-03",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "workers_dev": true,
+  "vars": {
+    "POLYSMART_CONNECTORS_MODE": "live",
+    "AI_GATEWAY_BASE_URL": "https://max2.jojocode.com/v1",
+    "AI_GATEWAY_MODEL": "gpt-5.4-mini"
+  },
+  "d1_databases": [
+    {
+      "binding": "POLYSMART_DB",
+      "database_name": "polysmart-prod",
+      "database_id": "c3d2313a-88ff-4cf3-99da-50de891d9e18",
+      "migrations_dir": "db/d1-migrations/ordered"
+    }
+  ],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "triggers": {
+    "crons": [
+      "*/15 * * * *"
+    ]
+  },
+  "observability": {
+    "enabled": true
+  },
+  "routes": [
+    {
+      "pattern": "www.polysmart.io/*",
+      "zone_name": "polysmart.io"
+    },
+    {
+      "pattern": "polysmart.io/*",
+      "zone_name": "polysmart.io"
+    }
+  ]
+}
