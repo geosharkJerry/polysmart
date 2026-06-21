@@ -44,7 +44,7 @@
     "AI_GATEWAY_MODEL": "gpt-5.4-mini",
     "APP_BASE_URL": "https://www.polysmart.io",
     "TURNSTILE_SITE_KEY": "0x4AAAAAAAv9PZ_TkAdn6fNh",
-    "TURNSTILE_SECRET_KEY": "0x4AAAAAAAv9PZ_TkAdn6fNh",
+    "TURNSTILE_SECRET_KEY": "ivWHZ66IdDCZZDJwTdYM72jpLby5nrBh",
     "LOGTO_ENDPOINT": "https://mr885g.logto.app",
     "LOGTO_APP_ID": "polysmart",
     "LOGTO_APP_SECRET": "36ejq8einvjppeqajet86",
