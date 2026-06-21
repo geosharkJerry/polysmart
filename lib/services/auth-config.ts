@@ -15,7 +15,6 @@ export function getLogtoConfig() {
   const endpoint = process.env.LOGTO_ENDPOINT || "";
   const appId = process.env.LOGTO_APP_ID || "";
   const appSecret = process.env.LOGTO_APP_SECRET || "";
-
   return {
     endpoint,
     appId,
@@ -29,6 +28,9 @@ export function getLogtoConfig() {
 
 export function getAuthConfigurationStatus() {
   const logto = getLogtoConfig();
+  // 直接访问 env 变量以确保它们不会被 tree-shake
+  const turnstileSiteKey = process.env.TURNSTILE_SITE_KEY || "";
+  const turnstileSecretKey = process.env.TURNSTILE_SECRET_KEY || "";
   return {
     logto: {
       configured: Boolean(logto.endpoint && logto.appId && logto.appSecret && logto.cookieSecret),
@@ -40,10 +42,10 @@ export function getAuthConfigurationStatus() {
       ].filter(Boolean) as string[]
     },
     turnstile: {
-      configured: hasTurnstileConfigured(),
+      configured: Boolean(turnstileSiteKey && turnstileSecretKey),
       missing: [
-        !getTurnstileSiteKey() ? "TURNSTILE_SITE_KEY" : null,
-        !getTurnstileSecretKey() ? "TURNSTILE_SECRET_KEY" : null
+        !turnstileSiteKey ? "TURNSTILE_SITE_KEY" : null,
+        !turnstileSecretKey ? "TURNSTILE_SECRET_KEY" : null
       ].filter(Boolean) as string[]
     }
   };

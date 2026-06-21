@@ -42,6 +42,8 @@
     "POLYSMART_CONNECTORS_MODE": "live",
     "AI_GATEWAY_BASE_URL": "https://max2.jojocode.com/v1",
     "AI_GATEWAY_MODEL": "gpt-5.4-mini",
-    "APP_BASE_URL": "https://www.polysmart.io"
+    "APP_BASE_URL": "https://www.polysmart.io",
+    "TURNSTILE_SITE_KEY": "0x4AAAAAAAv9PZ_TkAdn6fNh",
+    "TURNSTILE_SECRET_KEY": "0x4AAAAAAAv9PZ_TkAdn6fNh"
   }
 }

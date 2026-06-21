@@ -21,6 +21,10 @@ type AuthConfigStatus = {
   turnstile: { configured: boolean; missing: string[] };
 };
 
+function logtoBasedRegistration(authStatus: AuthConfigStatus | null) {
+  return !!authStatus?.logto.configured;
+}
+
 export function RegisterForm({ initialPlan }: Props) {
   const [planId, setPlanId] = useState(initialPlan);
   const [billingCycle, setBillingCycle] = useState("MONTHLY");
@@ -28,6 +32,11 @@ export function RegisterForm({ initialPlan }: Props) {
   const [turnstileToken, setTurnstileToken] = useState("");
   const [status, setStatus] = useState("");
   const [authStatus, setAuthStatus] = useState<AuthConfigStatus | null>(null);
+  const [localEmail, setLocalEmail] = useState("");
+  const [localPassword, setLocalPassword] = useState("");
+  const [localFullName, setLocalFullName] = useState("");
+  const [localCountry, setLocalCountry] = useState("");
+  const [localAddress, setLocalAddress] = useState("");
   const formRef = useRef<HTMLFormElement | null>(null);
 
   useEffect(() => {
@@ -37,7 +46,8 @@ export function RegisterForm({ initialPlan }: Props) {
       .catch(() => setAuthStatus(null));
   }, []);
 
-  const registrationReady = Boolean(authStatus?.logto.configured && authStatus?.turnstile.configured);
+  const useLogto = logtoBasedRegistration(authStatus);
+  const registrationReady = Boolean(authStatus?.turnstile.configured);
   const missingItems = [
     ...(authStatus?.logto.missing ?? []),
     ...(authStatus?.turnstile.missing ?? [])
@@ -46,7 +56,7 @@ export function RegisterForm({ initialPlan }: Props) {
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
     if (!registrationReady) {
-      setStatus("Production registration is not fully configured yet. Review the missing Cloudflare auth settings below.");
+      setStatus("Human verification is not configured yet. Review the missing Cloudflare Turnstile settings below.");
       return;
     }
     if (!acceptedRegistrationTerms) {
@@ -61,23 +71,37 @@ export function RegisterForm({ initialPlan }: Props) {
       setStatus("Registration form is not ready.");
       return;
     }
-    setStatus("Opening Logto secure sign-up...");
-    formRef.current.submit();
+
+    if (useLogto) {
+      setStatus("Opening Logto secure sign-up...");
+      formRef.current.submit();
+    } else {
+      if (!localEmail.trim() || !localPassword.trim() || !localFullName.trim() || !localCountry.trim() || !localAddress.trim()) {
+        setStatus("All fields are required for local registration.");
+        return;
+      }
+      if (localPassword.length < 8) {
+        setStatus("Password must be at least 8 characters.");
+        return;
+      }
+      setStatus("Creating local member account...");
+      formRef.current.submit();
+    }
   };
 
   return (
     <>
-      <SurfaceCard title="Start Secure Logto Registration" subtitle="Choose a package and complete Turnstile verification. Logto collects the identity credential, and detailed member profile data is completed after sign-up.">
+      <SurfaceCard title={useLogto ? "Start Secure Logto Registration" : "Local Member Registration"} subtitle={useLogto ? "Choose a package and complete Turnstile verification. Logto collects the identity credential." : "Create a local account with Turnstile protection. Upgrade to Logto later for SSO."}>
         <div className="mb-5 rounded-2xl border border-sky-100 bg-sky-50/70 p-4 dark:border-white/15 dark:bg-white/10">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Authentication readiness</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Auth mode: {useLogto ? "Logto (SSO)" : "Local (Turnstile only)"}</p>
           <p className="mt-2 text-sm text-slate-700 dark:text-slate-200">
-            {registrationReady
-              ? "Logto and Turnstile are ready for production registration."
-              : "Registration is safe but not production-ready until the missing Cloudflare settings are added."}
+            {authStatus?.turnstile.configured
+              ? "Human verification is active."
+              : "Human verification is not yet configured."}
           </p>
-          {!registrationReady ? <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">Missing: {missingItems.join(", ") || "Loading configuration..."}</p> : null}
+          {missingItems.length > 0 ? <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">Missing Cloudflare config: {missingItems.join(", ")}</p> : null}
         </div>
-        <form ref={formRef} action="/api/auth/register" method="POST" onSubmit={submit}>
+        <form ref={formRef} action={useLogto ? "/api/auth/register" : "/api/auth/register"} method="POST" onSubmit={submit}>
           <div className="grid gap-4 md:grid-cols-2">
             <label className="grid gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
               Selected Package
@@ -94,6 +118,36 @@ export function RegisterForm({ initialPlan }: Props) {
               </select>
             </label>
           </div>
+
+          {!useLogto && (
+            <div className="mt-4 grid gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <label className="grid gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                  Full Name
+                  <input name="fullName" className="input-field" type="text" value={localFullName} onChange={(e) => setLocalFullName(e.target.value)} autoComplete="name" />
+                </label>
+                <label className="grid gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                  Email
+                  <input name="email" className="input-field" type="email" value={localEmail} onChange={(e) => setLocalEmail(e.target.value)} autoComplete="email" />
+                </label>
+              </div>
+              <label className="grid gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                Password
+                <input name="password" className="input-field" type="password" value={localPassword} onChange={(e) => setLocalPassword(e.target.value)} autoComplete="new-password" />
+              </label>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <label className="grid gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                  Country / Region
+                  <input name="country" className="input-field" type="text" value={localCountry} onChange={(e) => setLocalCountry(e.target.value)} autoComplete="country-name" />
+                </label>
+                <label className="grid gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                  Address
+                  <input name="address" className="input-field" type="text" value={localAddress} onChange={(e) => setLocalAddress(e.target.value)} autoComplete="street-address" />
+                </label>
+              </div>
+            </div>
+          )}
+
           <section className="mt-6 rounded-3xl border border-sky-100 bg-sky-50/55 p-5 dark:border-white/15 dark:bg-white/10">
             <p className="text-xs font-medium uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">{MEMBER_REGISTRATION_DISCLOSURE.version}</p>
             <h3 className="mt-2 text-lg font-extrabold text-slate-900 dark:text-white">{MEMBER_REGISTRATION_DISCLOSURE.title}</h3>
@@ -106,27 +160,19 @@ export function RegisterForm({ initialPlan }: Props) {
                 </div>
               ))}
             </div>
-            <div className="mt-5 rounded-2xl border border-dashed border-sky-100 bg-white/80 p-4 dark:border-white/20 dark:bg-slate-900">
-              <p className="text-sm font-semibold text-slate-900 dark:text-white">Reference sources</p>
-              <div className="mt-3 flex flex-wrap gap-3">
-                {MEMBER_REGISTRATION_DISCLOSURE.references.map((reference) => (
-                  <a key={reference.label} href={reference.url} target="_blank" rel="noopener noreferrer" className="rounded-xl border border-sky-100 px-3 py-2 text-sm font-semibold text-sky-700 transition hover:bg-sky-50 dark:border-white/15 dark:text-sky-200 dark:hover:bg-white/10">
-                    {reference.label}
-                  </a>
-                ))}
-              </div>
-            </div>
             <TurnstileWidget onTokenChange={setTurnstileToken} onExpired={() => setTurnstileToken("")} className="mt-5" />
             <label className="mt-5 flex items-start gap-3 text-sm leading-6 text-slate-700 dark:text-slate-200">
               <input className="mt-1 h-4 w-4 rounded border-sky-200 accent-blue-600" type="checkbox" checked={acceptedRegistrationTerms} onChange={(event) => setAcceptedRegistrationTerms(event.target.checked)} />
-              <span>I have read and agree to the Polysmart Member Registration Disclosure and Privacy Notice, and I consent to the collection and use of my registration data for member onboarding, email verification, billing, account servicing, and related platform operations.</span>
+              <span>I have read and agree to the Polysmart Member Registration Disclosure and Privacy Notice.</span>
             </label>
             <input type="hidden" name="acceptedRegistrationTerms" value={acceptedRegistrationTerms ? "true" : "false"} readOnly />
             <input type="hidden" name="turnstileToken" value={turnstileToken} readOnly />
           </section>
 
           <div className="mt-5 flex flex-wrap items-center gap-3">
-            <button className="btn-primary-solid" type="submit" disabled={!acceptedRegistrationTerms || !registrationReady}>Continue with Logto</button>
+            <button className="btn-primary-solid" type="submit" disabled={!acceptedRegistrationTerms || !registrationReady}>
+              {useLogto ? "Continue with Logto" : "Create Local Account"}
+            </button>
             <NextLink className="btn-secondary" href="/login">Already Registered</NextLink>
           </div>
           {status ? <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">{status}</p> : null}
@@ -135,9 +181,9 @@ export function RegisterForm({ initialPlan }: Props) {
 
       <SurfaceCard title="Profile Completion After Sign-up" subtitle="The member gate is intentionally staged before payment, funding, and account operations.">
         <div className="grid gap-4 text-sm leading-6 text-slate-600 dark:text-slate-300">
-          <p>1. Select the package and complete Turnstile verification.</p>
-          <p>2. Create or sign into your Logto member identity.</p>
-          <p>3. Return to the console and complete the operational member profile, including legal name, country, address, investor tier, and any remaining onboarding details.</p>
+          <p>1. Complete registration with Turnstile verification.</p>
+          <p>2. Verify your email (a verification link will be sent).</p>
+          <p>3. Sign in and complete the operational member profile in the console.</p>
           <p>4. Continue into Stripe payment, wallet funding, account binding, and execution controls.</p>
         </div>
       </SurfaceCard>
