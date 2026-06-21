@@ -7,15 +7,30 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "typecheck": "rm -f tsconfig.tsbuildinfo && tsc --noEmit",
+    "test": "vitest run",
+    "check:auth-production": "node scripts/check-auth-production-config.mjs",
+    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
   },
   "dependencies": {
-    "next": "14.2.5",
+    "@langchain/langgraph": "^1.4.4",
+    "@logto/next": "^4.2.10",
+    "@refinedev/core": "^5.0.12",
+    "@refinedev/nextjs-router": "^7.0.5",
+    "@tremor/react": "^3.18.7",
+    "echarts": "^6.1.0",
+    "echarts-for-react": "^3.0.6",
+    "next": "^14.2.35",
+    "next-themes": "^0.4.6",
     "react": "18.3.1",
-    "react-dom": "18.3.1"
+    "react-dom": "18.3.1",
+    "stripe": "^22.2.0",
+    "yargs": "^18.0.0"
   },
   "devDependencies": {
+    "@opennextjs/cloudflare": "^1.13.0",
     "@types/node": "20.14.10",
     "@types/react": "18.3.3",
     "@types/react-dom": "18.3.0",
@@ -23,6 +38,26 @@
     "postcss": "8.4.39",
     "tailwindcss": "3.4.7",
     "typescript": "5.5.3",
-    "vitest": "2.0.5"
-  }
+    "vitest": "2.0.5",
+    "wrangler": "^4.103.0"
+  },
+  "description": "Commercial-grade implementation for: - T+0 market ingestion control - Dual billing modes (performance split vs subscription volume fee) - Admin settlement and subscription management - Matrix account binding and health monitoring - Risk circuit breaker and asset-pool emergency withdrawal - Strategy quote and hedge state-machine simulation",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "lib": "lib",
+    "test": "tests"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/geosharkJerry/polysmart.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/geosharkJerry/polysmart/issues"
+  },
+  "homepage": "https://github.com/geosharkJerry/polysmart#readme"
 }

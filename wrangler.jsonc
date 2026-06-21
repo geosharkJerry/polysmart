@@ -3,15 +3,11 @@
   "name": "polysmart",
   "main": "cloudflare-worker.js",
   "compatibility_date": "2026-06-03",
+  "keep_vars": true,
   "compatibility_flags": [
     "nodejs_compat"
   ],
   "workers_dev": true,
-  "vars": {
-    "POLYSMART_CONNECTORS_MODE": "live",
-    "AI_GATEWAY_BASE_URL": "https://max2.jojocode.com/v1",
-    "AI_GATEWAY_MODEL": "gpt-5.4-mini"
-  },
   "d1_databases": [
     {
       "binding": "POLYSMART_DB",
@@ -41,5 +37,11 @@
       "pattern": "polysmart.io/*",
       "zone_name": "polysmart.io"
     }
-  ]
+  ],
+  "vars": {
+    "POLYSMART_CONNECTORS_MODE": "live",
+    "AI_GATEWAY_BASE_URL": "https://max2.jojocode.com/v1",
+    "AI_GATEWAY_MODEL": "gpt-5.4-mini",
+    "APP_BASE_URL": "https://www.polysmart.io"
+  }
 }
